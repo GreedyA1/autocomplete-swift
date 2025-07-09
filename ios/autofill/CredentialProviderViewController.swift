@@ -38,123 +38,54 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
   }
 }
 
+
 class CredentialProviderViewController: ASCredentialProviderViewController {
+  private var reactNativeFactory: RCTReactNativeFactory?
+  private var reactNativeFactoryDelegate: RCTReactNativeFactoryDelegate?
 
-    /*
-     Prepare your UI to list available credentials for the user to choose from. The items in
-     'serviceIdentifiers' describe the service the user is logging in to, so your extension can
-     prioritize the most relevant credentials in the list.
-    */
-    override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
-    }
+  override func viewDidLoad() {
+    super.viewDidLoad()
 
-    /*
-     Implement this method if your extension supports showing credentials in the QuickType bar.
-     When the user selects a credential from your app, this method will be called with the
-     ASPasswordCredentialIdentity your app has previously saved to the ASCredentialIdentityStore.
-     Provide the password by completing the extension request with the associated ASPasswordCredential.
-     If using the credential would require showing custom UI for authenticating the user, cancel
-     the request with error code ASExtensionError.userInteractionRequired.
+    // Setup React Native delegate
+    reactNativeFactoryDelegate = ReactNativeDelegate()
+    reactNativeFactoryDelegate!.dependencyProvider = RCTAppDependencyProvider()
+    reactNativeFactory = RCTReactNativeFactory(delegate: reactNativeFactoryDelegate!)
 
-    override func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
-        let databaseIsUnlocked = true
-        if (databaseIsUnlocked) {
-            let passwordCredential = ASPasswordCredential(user: "j_appleseed", password: "apple1234")
-            self.extensionContext.completeRequest(withSelectedCredential: passwordCredential, completionHandler: nil)
-        } else {
-            self.extensionContext.cancelRequest(withError: NSError(domain: ASExtensionErrorDomain, code:ASExtensionError.userInteractionRequired.rawValue))
-        }
-    }
-    */
+    let screenScale = UIScreen.main.scale
+    let screenBounds = self.view.bounds
 
-    /*
-     Implement this method if provideCredentialWithoutUserInteraction(for:) can fail with
-     ASExtensionError.userInteractionRequired. In this case, the system may present your extension's
-     UI and call this method. Show appropriate UI for authenticating the user then provide the password
-     by completing the extension request with the associated ASPasswordCredential.
+    let initialProps: [String: Any] = [
+      "initialViewWidth": screenBounds.width,
+      "initialViewHeight": screenBounds.height,
+      "pixelRatio": screenScale,
+      "fontScale": UIFont.preferredFont(forTextStyle: .body).pointSize / 17.0
+    ]
 
-    override func prepareInterfaceToProvideCredential(for credentialIdentity: ASPasswordCredentialIdentity) {
-    }
-    */
+    let rootView = reactNativeFactory!.rootViewFactory.view(
+      withModuleName: "autofillExtension",
+      initialProperties: initialProps
+    )
+    
+    rootView.frame = self.view.bounds
+    rootView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    self.view.addSubview(rootView)
+  }
 
-    @IBAction func cancel(_ sender: AnyObject?) {
-        self.extensionContext.cancelRequest(withError: NSError(domain: ASExtensionErrorDomain, code: ASExtensionError.userCanceled.rawValue))
-    }
+  override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
+    // Called when the user opens the Autofill sheet — optional to customize
+  }
 
-    @IBAction func passwordSelected(_ sender: AnyObject?) {
-        let passwordCredential = ASPasswordCredential(user: "j_appleseed", password: "apple1234")
-        self.extensionContext.completeRequest(withSelectedCredential: passwordCredential, completionHandler: nil)
-    }
+  override func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
+    // Auto-fill credential without showing UI — optional
+  }
 
-    private func loadReactNativeContent() {
-        getShareData { [weak self] sharedData in
-        guard let self = self else {
-            print("❌ Self was deallocated")
-            return
-        }
-        
-        reactNativeFactoryDelegate = ReactNativeDelegate()
-        reactNativeFactoryDelegate!.dependencyProvider = RCTAppDependencyProvider()
-        reactNativeFactory = RCTReactNativeFactory(delegate: reactNativeFactoryDelegate!)
-        
-        var initialProps = sharedData ?? [:]
-        
-        // Capture current view's properties before replacing it
-        let currentBounds = self.view.bounds
-        let currentScale = UIScreen.main.scale
-        
-        // Log the scale of the parent view
-        print("[ShareExtension] self.view.contentScaleFactor before adding subview: \(self.view.contentScaleFactor)")
-        print("[ShareExtension] UIScreen.main.scale: \(currentScale)")
-        
-        // Add screen metrics to initial properties for React Native
-        // These can be used by the JS side to understand its container size and scale
-        initialProps["initialViewWidth"] = currentBounds.width
-        initialProps["initialViewHeight"] = currentBounds.height
-        initialProps["pixelRatio"] = currentScale
-        // It's also good practice to pass the font scale for accessibility
-        // Default body size on iOS is 17pt, used as a reference for calculating fontScale.
-        initialProps["fontScale"] = UIFont.preferredFont(forTextStyle: .body).pointSize / 17.0
-        
-        // Create the React Native root view
-        let reactNativeRootView = reactNativeFactory!.rootViewFactory.view(
-            withModuleName: "autofillExtension",
-            initialProperties: initialProps
-        )
-        
-        let backgroundFromInfoPlist = Bundle.main.object(forInfoDictionaryKey: "ShareExtensionBackgroundColor") as? [String: CGFloat]
-        let heightFromInfoPlist = Bundle.main.object(forInfoDictionaryKey: "ShareExtensionHeight") as? CGFloat
-        
-        configureRootView(reactNativeRootView, withBackgroundColorDict: backgroundFromInfoPlist, withHeight: heightFromInfoPlist)
-        view.addSubview(reactNativeRootView)
+  override func prepareInterfaceToProvideCredential(for credentialIdentity: ASPasswordCredentialIdentity) {
+    // Provide UI for selected credential if needed
+  }
 
-        // Hide loading indicator once React content is ready
-        self.loadingIndicator.stopAnimating()
-        self.loadingIndicator.removeFromSuperview()
-        }
-    }
-
-    private func configureRootView(_ rootView: UIView, withBackgroundColorDict dict: [String: CGFloat]?, withHeight: CGFloat?) {
-        rootView.backgroundColor = backgroundColor(from: dict)
-
-        // Get the screen bounds
-        let screenBounds = UIScreen.main.bounds
-
-        // Calculate proper frame
-        let frame: CGRect
-        if let withHeight = withHeight {
-        rootView.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
-        frame = CGRect(
-            x: 0,
-            y: screenBounds.height - withHeight,
-            width: screenBounds.width,
-            height: withHeight
-        )
-        } else {
-        rootView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        frame = screenBounds
-        }
-        rootView.frame = frame
-    }
-
+  // Proper teardown if needed
+  deinit {
+    reactNativeFactory = nil
+    reactNativeFactoryDelegate = nil
+  }
 }
