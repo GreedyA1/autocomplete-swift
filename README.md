@@ -1,7 +1,13 @@
 
 # React native code in autofill extension
 
-## bundle with react-native cli
+## run with 
+`npx expo run:ios --device`
+
+
+# Deprecated (WITHOUT BUILD PHASES)
+
+## bundle with react-native cli  (NOT REQUIRED ANYMORE)
 ```
 npx react-native bundle \
   --platform ios \
@@ -10,5 +16,7 @@ npx react-native bundle \
   --bundle-output ios/autofill/main.jsbundle \
   --assets-dest ios/autofill
 ```
-## run with release configuration
+
+
+## run with release configuration (NOT REQUIRED ANYMORE)
 `npx expo run:ios --device --configuration Release`
